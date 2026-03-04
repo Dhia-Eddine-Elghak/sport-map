@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  // Lire les paramètres de l'URL
+  const params = new URLSearchParams(window.location.search);
+  const userLat = parseFloat(params.get('ulat')) || 36.8065;
+  const userLng = parseFloat(params.get('ulng')) || 10.1815;
+  const terrains = JSON.parse(decodeURIComponent(params.get('terrains') || '[]'));
+
+  // Initialiser la carte
+  const map = L.map('map').setView([userLat, userLng], 13);
+
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  // Marqueur utilisateur (bleu)
+  const userIcon = L.divIcon({
+    html: '📍',
+    iconSize: [30, 30],
+    className: ''
+  });
+  L.marker([userLat, userLng], {icon: userIcon})
+   .addTo(map)
+   .bindPopup('<b>Votre position</b>')
+   .openPopup();
+
+  // Marqueurs terrains (rouge)
+  terrains.forEach(t => {
+    if (t.lat && t.lng) {
+      const terrainIcon = L.divIcon({
+        html: '🏟️',
+        iconSize: [30, 30],
+        className: ''
+      });
+      L.marker([parseFloat(t.lat), parseFloat(t.lng)], {icon: terrainIcon})
+       .addTo(map)
+       .bindPopup(`
+         <b>${t.name}</b><br>
+         ⚽ ${t.sport}<br>
+         💰 ${t.price} DT/h<br>
+         ⭐ ${t.rating}<br>
+         📍 ${t.distance} km
+       `);
+    }
+  });
+</script>
+</body>
+</html>
