@@ -13,48 +13,88 @@
 <body>
 <div id="map"></div>
 <script>
-  // Lire les paramètres de l'URL
   const params = new URLSearchParams(window.location.search);
   const userLat = parseFloat(params.get('ulat')) || 36.8065;
   const userLng = parseFloat(params.get('ulng')) || 10.1815;
-  const terrains = JSON.parse(decodeURIComponent(params.get('terrains') || '[]'));
+  const terrainsRaw = params.get('terrains') || '[]';
+  const terrains = JSON.parse(decodeURIComponent(terrainsRaw));
+
+  // Calcul distance
+  function distance(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(lat1*Math.PI/180) *
+              Math.cos(lat2*Math.PI/180) *
+              Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  // Calculer distance pour chaque terrain
+  terrains.forEach(t => {
+    t.dist = distance(userLat, userLng,
+                      parseFloat(t.lat), parseFloat(t.lng));
+  });
+
+  // Trier par distance
+  terrains.sort((a, b) => a.dist - b.dist);
 
   // Initialiser la carte
   const map = L.map('map').setView([userLat, userLng], 13);
-
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
   }).addTo(map);
 
-  // Marqueur utilisateur (bleu)
+  // Marqueur utilisateur
   const userIcon = L.divIcon({
-    html: '📍',
-    iconSize: [30, 30],
+    html: '<div style="font-size:32px">📍</div>',
+    iconSize: [32, 32],
     className: ''
   });
   L.marker([userLat, userLng], {icon: userIcon})
    .addTo(map)
-   .bindPopup('<b>Votre position</b>')
+   .bindPopup('<b>📍 Votre position</b>')
    .openPopup();
 
-  // Marqueurs terrains (rouge)
-  terrains.forEach(t => {
-    if (t.lat && t.lng) {
-      const terrainIcon = L.divIcon({
-        html: '🏟️',
-        iconSize: [30, 30],
-        className: ''
-      });
-      L.marker([parseFloat(t.lat), parseFloat(t.lng)], {icon: terrainIcon})
-       .addTo(map)
-       .bindPopup(`
-         <b>${t.name}</b><br>
-         ⚽ ${t.sport}<br>
-         💰 ${t.price} DT/h<br>
-         ⭐ ${t.rating}<br>
-         📍 ${t.distance} km
-       `);
-    }
+  // Cercle 10km
+  L.circle([userLat, userLng], {
+    radius: 10000,
+    color: 'blue',
+    fillColor: '#3388ff',
+    fillOpacity: 0.05,
+    weight: 1.5
+  }).addTo(map);
+
+  // Marqueurs terrains
+  terrains.forEach((t, index) => {
+    const lat = parseFloat(t.lat);
+    const lng = parseFloat(t.lng);
+    if (!lat || !lng) return;
+
+    const isTop5 = index < 5;
+
+    const icon = L.divIcon({
+      html: isTop5
+        ? '<div style="font-size:30px;filter:drop-shadow(0 0 6px gold)">🏟️</div>'
+        : '<div style="font-size:22px;opacity:0.7">⚽</div>',
+      iconSize: [36, 36],
+      className: ''
+    });
+
+    const popup = `
+      <div style="font-family:sans-serif;min-width:160px">
+        ${isTop5 ? '<div style="color:goldenrod;font-weight:bold">⭐ TOP 5 PROCHE</div>' : ''}
+        <b>${t.name}</b><br>
+        🏅 ${t.sport}<br>
+        💰 ${t.price} DT/h<br>
+        ⭐ ${t.rating}/5<br>
+        📍 ${t.dist.toFixed(1)} km de vous
+      </div>`;
+
+    L.marker([lat, lng], {icon})
+     .addTo(map)
+     .bindPopup(popup);
   });
 </script>
 </body>
